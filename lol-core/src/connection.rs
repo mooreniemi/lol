@@ -221,3 +221,28 @@ pub mod gateway {
         futures::future::join_all(futs).await
     }
 }
+
+mod channel_wrapper {
+    use tonic::client::GrpcService;
+    use tonic::transport::{Body, Channel};
+    use tonic::body::BoxBody;
+    use std::task::{Context, Poll};
+    use tower::Service;
+
+    // a wrapper to add Service impl to Channel.
+    // future tonic will have this in its core library.
+    // when the time comes, remove this code.
+    struct ChannelWrapper(Channel);
+    impl Service<http::Request<BoxBody>> for ChannelWrapper {
+        type Response = http::Response<Body>;
+        type Error = tonic::transport::Error;
+        type Future = tonic::transport::channel::ResponseFuture;
+        fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+            self.0.poll_ready(cx)
+        }
+        fn call(&mut self, req: http::Request<BoxBody>) -> Self::Future {
+            let mut channel = self.0.clone();
+            channel.call(req)
+        }
+    }
+}

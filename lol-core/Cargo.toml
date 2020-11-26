@@ -14,6 +14,8 @@ keywords = ["raft"]
 
 [dependencies]
 tonic = "0.3"
+http = "0.2"
+tower = "0.3"
 prost = "0.6"
 tokio = { version = "0.2", features = ["macros", "fs"] }
 rand = "0.7"
