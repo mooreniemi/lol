@@ -7,14 +7,24 @@ pub type Connection = proto_compiled::raft_client::RaftClient<tonic::transport::
 #[derive(Clone)]
 pub struct EndpointConfig {
     timeout: Option<Duration>,
+    connect_timeout: Option<Duration>,
 }
 impl EndpointConfig {
     pub fn default() -> Self {
-        Self { timeout: None }
+        Self {
+            timeout: None,
+            connect_timeout: None,
+        }
     }
     pub fn timeout(self, x: Duration) -> Self {
         Self {
             timeout: Some(x),
+            ..self
+        }
+    }
+    pub fn connect_timeout(self, x: Duration) -> Self {
+        Self {
+            connect_timeout: Some(x),
             ..self
         }
     }
@@ -37,14 +47,13 @@ impl Endpoint {
         if let Some(x) = config.timeout {
             endpoint = endpoint.timeout(x);
         }
-        proto_compiled::raft_client::RaftClient::connect(endpoint)
-            .await
-            .map_err(|_| {
-                tonic::Status::new(
-                    tonic::Code::Unavailable,
-                    format!("failed to connect to {}", self.id),
-                )
-            })
+        let chan = endpoint.connect().await.map_err(|_| {
+            tonic::Status::new(
+                tonic::Code::Unavailable,
+                format!("failed to connect to {}", self.id),
+            )
+        })?;
+        Ok(proto_compiled::raft_client::RaftClient::new(chan))
     }
 }
 /// resolve the socket address
