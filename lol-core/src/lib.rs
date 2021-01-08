@@ -114,16 +114,44 @@ impl PartialEq for Clock {
 /// 2. any client or other nodes in the cluster can access this node by the Id.
 /// 
 /// Typically, the form of Id is (http|https)://(hostname|ip):port
-pub type Id = String;
+#[derive(Clone, Debug, Eq, Hash)]
+pub struct Id {
+    inner: Arc<String>
+}
+impl Id {
+    fn new(url: String) -> Self {
+        Self {
+            inner: Arc::new(url)
+        }
+    }
+    fn as_str(&self) -> &str {
+        self.inner.as_str()
+    }
+}
+impl PartialEq for Id {
+    fn eq(&self, that: &Self) -> bool {
+        self.inner == that.inner
+    }
+}
+impl From<&str> for Id {
+    fn from(x: &str) -> Self {
+        Id::new(x.to_owned())
+    }
+}
+impl From<String> for Id {
+    fn from(x: String) -> Self {
+        Id::new(x)
+    }
+}
 
 #[derive(serde::Serialize, serde::Deserialize)]
 enum CommandB<'a> {
     Noop,
     Snapshot {
-        membership: HashSet<Id>,
+        membership: HashSet<String>,
     },
     ClusterConfiguration {
-        membership: HashSet<Id>,
+        membership: HashSet<String>,
     },
     Req {
         core: bool,
@@ -139,6 +167,8 @@ impl <'a> CommandB<'a> {
         rmp_serde::from_slice(x).unwrap()
     }
 }
+struct Membership(HashSet<Id>);
+struct MembershipB(HashSet<String>);
 #[derive(Clone, Debug)]
 enum Command {
     Noop,
@@ -332,7 +362,7 @@ impl<A: RaftApp> RaftCore<A> {
                     membership: {
                         let membership = self.cluster.read().await.membership.clone();
                         let mut xs: Vec<_> = membership.into_iter().collect();
-                        xs.sort();
+                        xs.sort_by_key(|x| x.as_str());
                         xs
                     },
                 };
@@ -476,7 +506,7 @@ impl<A: RaftApp> RaftCore<A> {
             };
             let insert_index = entry.this_clock.index;
             let command = entry.command.clone();
-            match self.log.try_insert_entry(entry, req.sender_id.clone(), Arc::clone(&self)).await? {
+            match self.log.try_insert_entry(entry, req.sender_id.into(), Arc::clone(&self)).await? {
                 TryInsertResult::Inserted => {
                     self.change_membership(command.into(), insert_index).await?;
                 },

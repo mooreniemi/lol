@@ -3,8 +3,8 @@ use crate::Id;
 /// Request
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
 pub enum Req {
-    AddServer(Id),
-    RemoveServer(Id),
+    AddServer(String),
+    RemoveServer(String),
     ClusterInfo,
     LogInfo,
     HealthCheck,
@@ -13,8 +13,8 @@ pub enum Req {
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
 pub enum Rep {
     ClusterInfo {
-        leader_id: Option<Id>,
-        membership: Vec<Id>,
+        leader_id: Option<String>,
+        membership: Vec<String>,
     },
     LogInfo {
         snapshot_index: u64,
