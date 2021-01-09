@@ -4,3 +4,7 @@ services:
     image: lol:dev
     volumes:
       - .:/lol-root
+  cov:
+    image: lol:cov
+    volumes:
+      - .:/lol-root

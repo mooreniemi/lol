@@ -194,6 +194,7 @@ impl Environment {
 
         // Id can be host:port. it is resolved by the server.
         let child = std::process::Command::new(command.name)
+            .env("LLVM_PROFILE_FILE", "cov/%p.profraw")
             .arg(&format!("http://localhost:{}", port))
             .args(command.args)
             .spawn()

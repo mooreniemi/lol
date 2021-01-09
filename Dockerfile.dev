@@ -2,7 +2,7 @@ FROM 'centos:7'
 WORKDIR '/lol-root'
 
 RUN yum install -y sudo gcc iputils bind-utils make
-RUN yum install -y ruby
+RUN yum install -y ruby less
 RUN yum install -y clang gcc-c++
 
 ARG USER
