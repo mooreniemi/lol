@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package lol_core_internal;
+
+message Noop {}
+message Snapshot {
+    repeated string membership = 1;
+}
+message ClusterConfiguration {
+    repeated string membership = 1;
+}
+message Req {
+    bool core = 1;
+    bytes message = 2;
+}
+message Command {
+    oneof command {
+        Noop noop = 1;
+        Snapshot snapshot = 2;
+        ClusterConfiguration cluster_configuration = 3;
+        Req req = 4;
+    }
+}
