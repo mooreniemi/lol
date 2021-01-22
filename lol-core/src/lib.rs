@@ -119,7 +119,7 @@ impl PartialEq for Clock {
 pub type Id = String;
 
 impl Command {
-    fn serialize(x: Command) -> Vec<u8> {
+    fn serialize(x: Command) -> Bytes {
         use prost::Message;
         use proto_internal as P;
         let cmd = match x {
@@ -143,10 +143,16 @@ impl Command {
         };
         let mut buf = Vec::with_capacity(msg.encoded_len());
         msg.encode(&mut buf).unwrap();
-        buf
+        buf.into()
     }
-    fn deserialize(x: &[u8]) -> Command {
-        unimplemented!()
+    fn deserialize(x: Bytes) -> Command {
+        use prost::Message;
+        use proto_internal as P;
+        let cmd = P::Command::decode(x).unwrap();
+        match cmd.command.unwrap() {
+            P::command::Command::Noop(P::Noop {}) => Command::Noop,
+            _ => unimplemented!()
+        }
     }
 }
 #[derive(Clone, Debug)]
@@ -165,7 +171,7 @@ enum Command {
 }
 impl Command {
     fn into_bytes(self) -> Bytes {
-        Command::serialize(self).into()
+        Command::serialize(self)
     }
 }
 #[derive(Clone, Copy)]
@@ -267,7 +273,7 @@ impl<A: RaftApp> RaftCore<A> {
         let mut ret = (0, HashSet::new());
         for i in from ..= to {
             let e = storage.get_entry(i).await?.unwrap();
-            match Command::deserialize(&e.command) {
+            match Command::deserialize(e.command) {
                 Command::Snapshot { membership } => {
                     ret = (i, membership);
                 },
@@ -429,7 +435,7 @@ fn into_out_stream(
 // Replication
 impl<A: RaftApp> RaftCore<A> {
     async fn change_membership(self: &Arc<Self>, command: Bytes, index: Index) -> anyhow::Result<()> {
-        match Command::deserialize(&command) {
+        match Command::deserialize(command) {
             Command::Snapshot { membership } => {
                 self.set_membership(&membership, index).await?;
             },
@@ -1065,7 +1071,7 @@ impl Log {
             // If the entry is snapshot then we should insert this entry without consistency checks.
             // Old entries before the new snapshot will be garbage collected.
             let command = entry.command.clone();
-            if std::matches!(Command::deserialize(&command), Command::Snapshot { .. }) {
+            if std::matches!(Command::deserialize(command), Command::Snapshot { .. }) {
                 let Clock { term: _, index: snapshot_index } = entry.this_clock;
                 log::warn!(
                     "log is too old. replicated a snapshot (idx={}) from leader",
@@ -1132,7 +1138,7 @@ impl Log {
         for i in old_agreement + 1..=new_agreement {
             let e = self.storage.get_entry(i).await?.unwrap();
             let term = e.this_clock.term;
-            match Command::deserialize(&e.command) {
+            match Command::deserialize(e.command) {
                 Command::ClusterConfiguration { membership } => {
                     // Leader stepdown should happen iff the last membership change doesn't contain the leader.
                     // This code is safe because doing or not doing leadership transfer will not affect anything
@@ -1179,7 +1185,7 @@ impl Log {
             let command = std::mem::take(&mut e.command);
             (apply_index, e, command)
         };
-        let ok = match Command::deserialize(&command) {
+        let ok = match Command::deserialize(command) {
             Command::Snapshot { membership } => {
                 let tag = self.storage.get_tag(apply_index).await?;
                 log::info!("install app snapshot");
@@ -1297,7 +1303,7 @@ impl Log {
         let cur_snapshot_entry = self.storage.get_entry(cur_snapshot_index).await?.unwrap();
         if let Command::Snapshot {
             membership,
-        } = Command::deserialize(&cur_snapshot_entry.command)
+        } = Command::deserialize(cur_snapshot_entry.command)
         {
             let mut base_snapshot_index = cur_snapshot_index; 
             let mut new_membership = membership;
@@ -1307,21 +1313,21 @@ impl Log {
                 commands.insert(i, command);
             }
             let mut app_messages = vec![];
-            for (i, command) in &commands {
-                match Command::deserialize(&command) {
+            for (i, command) in commands {
+                match Command::deserialize(command) {
                     Command::ClusterConfiguration { membership } => {
                         new_membership = membership;
                     }
                     Command::Req {
                         core: false,
-                        ref message,
+                        message,
                     } => {
-                        app_messages.push(message.clone());
+                        app_messages.push(message);
                     }
                     Command::Snapshot {
                         membership,
                     } => {
-                        base_snapshot_index = *i;
+                        base_snapshot_index = i;
                         new_membership = membership;
                         app_messages = vec![];
                     }
