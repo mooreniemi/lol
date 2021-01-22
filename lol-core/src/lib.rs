@@ -122,6 +122,7 @@ impl Command {
     fn serialize(x: Command) -> Bytes {
         use prost::Message;
         use proto_internal as P;
+
         let cmd = match x {
             Command::Noop => {
                 P::command::Command::Noop(P::Noop {})
@@ -148,10 +149,18 @@ impl Command {
     fn deserialize(x: Bytes) -> Command {
         use prost::Message;
         use proto_internal as P;
+        use std::iter::FromIterator;
+
         let cmd = P::Command::decode(x).unwrap();
         match cmd.command.unwrap() {
             P::command::Command::Noop(P::Noop {}) => Command::Noop,
-            _ => unimplemented!()
+            P::command::Command::Snapshot(P::Snapshot { membership }) => Command::Snapshot {
+                membership: HashSet::from_iter(membership)
+            },
+            P::command::Command::ClusterConfiguration(P::ClusterConfiguration { membership }) => Command::ClusterConfiguration {
+                membership: HashSet::from_iter(membership)
+            },
+            P::command::Command::Req(P::Req { core, message }) => Command::Req { core, message },
         }
     }
 }
