@@ -115,8 +115,7 @@ impl PartialEq for Clock {
 /// Typically, the form of Id is (http|https)://(hostname|ip):port
 pub type Id = String;
 
-#[derive(serde::Serialize, serde::Deserialize)]
-enum CommandB<'a> {
+enum CommandB {
     Noop,
     Snapshot {
         membership: HashSet<Id>,
@@ -126,16 +125,13 @@ enum CommandB<'a> {
     },
     Req {
         core: bool,
-        #[serde(with = "serde_bytes")]
-        message: &'a [u8]
+        message: Bytes,
     }
 }
-impl <'a> CommandB<'a> {
+impl CommandB {
     fn serialize(x: &CommandB) -> Vec<u8> {
-        rmp_serde::to_vec(x).unwrap()
     }
     fn deserialize(x: &[u8]) -> CommandB {
-        rmp_serde::from_slice(x).unwrap()
     }
 }
 #[derive(Clone, Debug)]
@@ -158,7 +154,7 @@ impl Command {
             Command::Noop => CommandB::Noop,
             Command::Snapshot { membership } => CommandB::Snapshot { membership },
             Command::ClusterConfiguration { membership } => CommandB::ClusterConfiguration { membership },
-            Command::Req { core, ref message } => CommandB::Req { core, message: &message }
+            Command::Req { core, message } => CommandB::Req { core, message }
         };
         CommandB::serialize(&y).into()
     }
@@ -1309,9 +1305,9 @@ impl Log {
                     }
                     CommandB::Req {
                         core: false,
-                        message,
+                        ref message,
                     } => {
-                        app_messages.push(message);
+                        app_messages.push(message.clone());
                     }
                     CommandB::Snapshot {
                         membership,
@@ -1324,7 +1320,11 @@ impl Log {
                 }
             }
             let base_tag = self.storage.get_tag(base_snapshot_index).await?;
-            let new_tag = core.app.fold_snapshot(base_tag.as_ref(), app_messages).await?;
+            let mut message_refs = vec![];
+            for x in &app_messages {
+                message_refs.push(x.as_ref())
+            }
+            let new_tag = core.app.fold_snapshot(base_tag.as_ref(), message_refs).await?;
             self.storage.put_tag(new_snapshot_index, new_tag).await?;
             let new_snapshot = {
                 let mut e = self.storage.get_entry(new_snapshot_index).await?.unwrap();
