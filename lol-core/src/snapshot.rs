@@ -66,7 +66,7 @@ pub(crate) fn into_out_stream(in_stream: SnapshotStream) -> SnapshotStreamOut {
         res.map(|x| GetSnapshotRep { chunk: x.to_vec() })
             .map_err(|_| tonic::Status::unknown("streaming error"))
     });
-    Box::pin(crate::SyncStream::new(out_stream))
+    Box::pin(sync_wrapper::SyncStream::new(out_stream))
 }
 pub(crate) fn into_in_stream(
     out_stream: impl Stream<Item = Result<GetSnapshotRep, tonic::Status>>,
