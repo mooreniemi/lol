@@ -40,7 +40,8 @@ pub mod gateway {
                 core: true,
                 message: core_message::Req::serialize(&req),
             };
-            let endpoint = Endpoint::from_shared(id)?;
+            // let endpoint = Endpoint::from_shared(id)?;
+            let endpoint: Endpoint = id.into();
             let mut conn = RaftClient::connect(endpoint).await?;
             let res = conn.request_process(req).await?.into_inner();
             let res = core_message::Rep::deserialize(&res.message).unwrap();

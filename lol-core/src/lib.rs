@@ -124,14 +124,23 @@ impl PartialEq for Clock {
     }
 }
 
-/// Unique identifier of a Raft node.
-///
-/// Id must satisfy these two conditions:
-/// 1. Id can identify a node in the cluster.
-/// 2. any client or other nodes in the cluster can access this node by the Id.
-///
-/// Typically, the form of Id is (http|https)://(hostname|ip):port
-pub type Id = String;
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
+struct UriWrapper(
+    #[serde(with = "http_serde::uri")]
+    tonic::transport::Uri
+);
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
+pub struct Id(Arc<UriWrapper>);
+impl From<tonic::transport::Uri> for Id {
+    fn from(x: tonic::transport::Uri) -> Id {
+        unimplemented!()
+    }
+}
+impl From<Id> for tonic::transport::Endpoint {
+    fn from(x: Id) -> tonic::transport::Endpoint {
+        unimplemented!()
+    }
+}
 
 #[derive(serde::Serialize, serde::Deserialize)]
 enum Command<'a> {
